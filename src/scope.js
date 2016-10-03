@@ -4,6 +4,7 @@ var _ = require('lodash');
 function Scope() {
     this.$$watchers = [];
     this.$$lastDirtyWatch = null;
+    this.$$asyncQueue = [];
 }
 
 function initWatchVal() { }
@@ -24,7 +25,7 @@ Scope.prototype.$watch = function (watchFn, listenerFn, valueEq) {
             self.$$watchers.splice(index, 1);
             self.$$lastDirtyWatch = null;
         }
-    }
+    };
 };
 
 Scope.prototype.$$digestOnce = function () {
@@ -58,6 +59,10 @@ Scope.prototype.$digest = function () {
     var ttl = 10;
     this.$$lastDirtyWatch = null;
     do {
+        while (this.$$asyncQueue.length) {
+            var asyncTask = this.$$asyncQueue.shift();
+            asyncTask.scope.$eval(asyncTask.expression);
+        }
         dirty = this.$$digestOnce();
         if (dirty && !(ttl--)) {
             throw '10 digest iterations reached';
@@ -73,6 +78,22 @@ Scope.prototype.$$areEqual = function (newValue, oldValue, valueEq) {
             (typeof newValue === 'number' && typeof oldValue === 'number' &&
                 isNaN(newValue) && isNaN(oldValue));
     }
+};
+
+Scope.prototype.$eval = function (expr, locals) {
+    return expr(this, locals);
+};
+
+Scope.prototype.$apply = function (expr) {
+    try {
+        return this.$eval(expr);
+    } finally {
+        this.$digest();
+    }
+};
+
+Scope.prototype.$evalAsync = function (expr) {
+    this.$$asyncQueue.push({ scope: this, expression: expr });
 };
 
 module.exports = Scope;
