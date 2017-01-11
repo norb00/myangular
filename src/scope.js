@@ -1,7 +1,7 @@
 'use strict';
 var _ = require('lodash');
 
-/* page 122 - Watching collections */
+/* page 130 - Watching collections */
 
 function Scope() {
     this.$$watchers = [];
@@ -235,7 +235,7 @@ Scope.prototype.$new = function (isolated, parent) {
         child.$$asyncQueue = parent.$$asyncQueue;
         child.$$postDigestQueue = parent.$$postDigestQueue;
         child.$$applyAsyncQueue = parent.$$applyAsyncQueue;
-    } else{
+    } else {
         var ChildScope = function () { };
         ChildScope.prototype = this;
         child = new ChildScope();
@@ -262,11 +262,40 @@ Scope.prototype.$destroy = function () {
     if (this.$parent) {
         var siblings = this.$parent.$$children;
         var indexOfThis = siblings.indexOf(this);
-        if (indexOfThis>=0) {
+        if (indexOfThis >= 0) {
             siblings.splice(indexOfThis, 1);
         }
     }
     this.$$watchers = null;
+};
+
+Scope.prototype.$watchCollection = function (watchFn, listenerFn) {
+    var self = this;
+    var newValue;
+    var oldValue;
+    var changeCount = 0;
+    var internalWatchFn = function (scope) {
+        newValue = watchFn(scope);
+        if (_.isObject(newValue)) {
+            if (_.isArray(newValue)) {
+                if (!_.isArray(oldValue)) {
+                    changeCount++;
+                    oldValue = [];
+                }
+            } else {
+            }
+        } else {
+            if (!self.$$areEqual(newValue, oldValue, false)) {
+                changeCount++;
+            }
+            oldValue = newValue;
+        }
+        return changeCount;
+    };
+    var internalListenerFn = function (scope) {
+        listenerFn(newValue, oldValue, self);
+    };
+    return this.$watch(internalWatchFn, internalListenerFn);
 };
 
 module.exports = Scope;
